@@ -1,0 +1,39 @@
+{
+  "name": "UrbanGardenBus",
+  "version": "1.0.0",
+  "description": "UrbanGardenBus LoRa32 client",
+  "keywords": "urbangarden, lorawan, canbus",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PyroFourTwenty/UrbanGardenBusClient_LoRa32"
+  },
+  "authors": [
+    {
+      "name": "PyroFourTwenty",
+      "email": "pyro@fourtwenty.com",
+      "url": "",
+      "maintainer": true
+    }
+  ],
+  "export": {
+    "exclude": [
+      "test"
+    ],
+    "include": [
+      "include/*",
+      "src/UrbanGardenBusClient/*"
+    ]
+  },
+  "license": "MIT",
+  "dependencies": {
+    "adafruit/CAN Adafruit Fork": "^1.2.1",
+    "mcci-catena/MCCI LoRaWAN LMIC library": "^4.0.0",
+    "thesolarnomad/LoRa Serialization": "^3.1.0"
+  },
+  "frameworks": [
+    "Arduino"
+  ],
+  "platforms": [
+    "espressif32"
+  ]
+}

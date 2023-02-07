@@ -1,0 +1,5 @@
+adafruit/Adafruit Unified Sensor@^1.1.6
+adafruit/DHT sensor library@^1.4.4
+markruys/DHT@^1.0.0
+adafruit/CAN Adafruit Fork@^1.2.1
+mcci-catena/MCCI LoRaWAN LMIC library@^4.1.1
