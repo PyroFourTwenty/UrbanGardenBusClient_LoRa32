@@ -1,6 +1,11 @@
 //CAN BUS related stuff
 #define CAN_SPEED 1000E3
 
+//LoRa related stuff
+#define hal_init LMICHAL_init
+#define CFG_eu868 1
+#define LORAWAN_TX_INTERVAL 60 // in seconds
+
 //timeouts
 #define HEADSTATION_TIMEOUT 3*10000 // in milliseconds
 #define HEADSTATION_ID 0 
