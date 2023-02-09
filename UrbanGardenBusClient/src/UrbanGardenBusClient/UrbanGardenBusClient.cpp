@@ -3,9 +3,6 @@
 #include <lmic.h>
 #include <hal/hal.h>
 #include <SPI.h>
-#include <LoraMessage.h>
-#include <LoraEncoder.h>
-
 
 const lmic_pinmap lmic_pins = {
     .nss = 18, 
@@ -20,7 +17,9 @@ void printHex2(unsigned v) {
         Serial.print('0');
     Serial.print(v, HEX);
 }
-LoraMessage message;
+
+byte sensorDataBuffer[1024]; // a sensor reading takes 4 bytes. A station can have up to 256 sensor slot. 4 * 256 = 1024, so we need to potentially store 1024 bytes of sensor data 
+int sensorCount = 0;
 
 void UrbanGardenBusClient::onEvent (ev_t ev) {
     Serial.print(os_getTime());
@@ -98,10 +97,9 @@ void UrbanGardenBusClient::onEvent (ev_t ev) {
             }
             // Schedule next transmission
             if(this->lorawanEnabled){
-              //os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), do_send);
+                this->writeSensorReadingsToBuffer();
             
-                os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), &do_send);
-
+                os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(LORAWAN_TX_INTERVAL), &do_send);
             }
             break;
         case EV_LOST_TSYNC:
@@ -235,8 +233,6 @@ void UrbanGardenBusClient::handleValueRequest(){
     if(this->nodeId==nodeIdFromPacket){
         int sensorSlot = packetBytes[3];
         auto it = this->sensors.find(sensorSlot);
-        //Serial.println("Printing sensors...");
-        //printSensorMap();
         if(it==this->sensors.end()){
             Serial.println("Requested sensor slot is not available");
         }else{
@@ -250,7 +246,6 @@ void UrbanGardenBusClient::handleValueRequest(){
             CAN.write(sensorSlot);
             CAN.endPacket();
             Serial.println("sent");
-
             Serial.print("Accessing sensor on slot ");
             Serial.print(sensorSlot);
             Serial.print(":");
@@ -279,7 +274,7 @@ void UrbanGardenBusClient::handleValueRequest(){
 }
 
 bool UrbanGardenBusClient::registerSensor(UrbanGardenSensor newSensor, int timeout){
-  //default timeout is 30 seconds (or 30.000 milliseconds)
+    //default timeout is 30 seconds (or 30.000 milliseconds)
     uint8_t buffer[2];
     memcpy(buffer,&this->nodeId,2);
     Serial.print("Sending SENSOR_REGISTER packet... ");
@@ -325,17 +320,8 @@ bool UrbanGardenBusClient::registerSensor(UrbanGardenSensor newSensor, int timeo
             }
         }
     }
-    //UrbanGardenSensor fml;
-    //fml.slot = newSensor.slot;
-    //fml.sensorModelId = newSensor.sensorModelId;
-    //fml.getValueFunction= newSensor.getValueFunction;
-    //fml.needsCalibration= newSensor.needsCalibration;
-    //fml.applyCalibrationFunction=newSensor.applyCalibrationFunction;
-    ////this->sensors.insert(std::pair<int, UrbanGardenSensor>(fml.slot, fml));
-    //
-    
-    //this->sensors.insert({newSensor.slot, newSensor});
     this->sensors.insert(std::pair<int,UrbanGardenSensor>(newSensor.slot,newSensor));
+    sensorCount = this->sensors.size();
     return registrationSuccessful;
 }
 
@@ -448,21 +434,27 @@ bool UrbanGardenBusClient::waitForCanPacket(){
 }
 
 bool UrbanGardenBusClient::headstationTimeout(){
-    //return true;
     return millis()-this->lastHeadstationAlivePacket>=HEADSTATION_TIMEOUT;
 }
 
-LoraMessage UrbanGardenBusClient::fillLoraMessage(){
+void UrbanGardenBusClient::writeSensorReadingsToBuffer(){
+    uint8_t fourByteBuffer [4];
+    int sensorPayloadIndex = 0;
     for (auto const &ent : this->sensors){
         auto it = this->sensors.find(ent.first);
         float value = it->second.getValueFunction();
-        
         if (it->second.needsCalibration){
-            Serial.println(it->second.calibrationValue);
             value = it->second.applyCalibrationFunction(value,it->second.calibrationValue);
-            Serial.println(value);
         }
-        message.addRawFloat(value);
+        Serial.print("Sensor on slot ");
+        Serial.print(ent.first);
+        Serial.print(" has value ");
+        Serial.println(value);
+        memcpy(fourByteBuffer,&value,4);
+        for (int i = 0; i<4; i++){
+            sensorDataBuffer[sensorPayloadIndex*4+i] = fourByteBuffer[i];            
+        }
+        sensorPayloadIndex++;
     }
 }
 
@@ -471,28 +463,16 @@ void UrbanGardenBusClient::do_send(osjob_t* j){
     // Check if there is not a current TX/RX job running
     if (LMIC.opmode & OP_TXRXPEND) {
         Serial.println(F("OP_TXRXPEND, not sending"));
-        //Serial.println(F("Rescheduling TX"));
-
-        //os_setTimedCallback(&sendjob, os_getTime(), do_send);
-        
     } else {
         // Prepare upstream data transmission at the next possible time.
-        //LMIC_setTxData2(1, mydata, sizeof(mydata)-1, 0);
-        //Serial.println(F("Packet queued"));
+        int txDataLength = sensorCount*4; 
+        byte txData [txDataLength]; 
         
-        int length = message.getLength();
-        
-        for (int i = 0; i<length;i++){
-          Serial.print(message.getBytes()[i]);
+        for (int i = 0; i <txDataLength; i++){
+            txData[i]=sensorDataBuffer[i];
         }
-        Serial.println();
-
-        LMIC_setTxData2(1, message.getBytes(), message.getLength(), 0);
-        
-
+        LMIC_setTxData2(1, txData, txDataLength, 0);
     }
-
-    // Next TX is scheduled after TX_COMPLETE event.
 }
 
 void UrbanGardenBusClient::do_loop(){
@@ -510,16 +490,11 @@ void UrbanGardenBusClient::do_loop(){
     }
     if(this->headstationTimeout() && !this->lorawanEnabled){
         Serial.println("HEADSTATION TIMEOUT, FALLING BACK TO LORAWAN CONNECTIVITY");
-        //os_init();
         lorawanEnabled=true; //prevents the following line to be executed over and over again
         // Start job (sending automatically starts OTAA too)
-        //
-        this->fillLoraMessage();
-        os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), &do_send);
-        
-        //os_setTimedCallback(this->sendjob,os_getTime(),do_send);
+        this->writeSensorReadingsToBuffer();
+        os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(1), &do_send);        
     }
-
     if (packetPresent) {
         switch(packetBytes[0]){
             case VALUE_REQUEST:
