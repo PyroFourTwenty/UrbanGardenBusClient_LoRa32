@@ -72,14 +72,14 @@ void setup() {
   
   
   Serial.print("Registering genericsoilhumidityOnSlot1: ");
-  if (client.registerSensor(genericsoilhumidityOnSlot1,10000)){
+  if (client.registerSensor(genericsoilhumidityOnSlot1,20000)){
     Serial.println("success");
   }else{
     Serial.println("failed");
   }
   
   // or for dynamically requesting a calibration value that is saved at the headstation:
-  client.requestCalibrationForSensor(genericsoilhumidityOnSlot1, 10000);
+  client.requestCalibrationForSensor(genericsoilhumidityOnSlot1, 20000);
 }
 
 void loop() {
