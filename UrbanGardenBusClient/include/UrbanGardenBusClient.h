@@ -2,7 +2,6 @@
 #include <map>
 #include <CAN.h>
 #include <lmic.h>
-#include <LoraMessage.h>
 
 #define SCK     5    // GPIO5  -- SX1278's SCK
 #define MISO    19   // GPIO19 -- SX1278's MISO
@@ -28,7 +27,7 @@ class UrbanGardenBusClient{
         bool waitForCanPacket();
         int16_t convertBytesToInt(uint8_t *data);
         float convertBytesToFloat(uint8_t *data);
-        LoraMessage fillLoraMessage();
+        void writeSensorReadingsToBuffer();
         void handleValueRequest();
         uint8_t packetBytes [8];
         long lastAlivePacket;
