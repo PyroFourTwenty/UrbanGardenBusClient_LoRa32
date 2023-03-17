@@ -1,6 +1,6 @@
 {
   "name": "UrbanGardenBus",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "UrbanGardenBus LoRa32 client",
   "keywords": "urbangarden, lorawan, canbus",
   "repository": {
